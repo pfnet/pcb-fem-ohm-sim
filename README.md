@@ -1,3 +1,10 @@
+This repository has been modified
+Distributing it may violate the license.
+
+The aim of this project is to analyze current density of PCB-boards.
+FEniCSx and gmsh are required.
+
+
 pcb-tools
 ============
 [![CI](https://github.com/curtacircuitos/pcb-tools/workflows/pcb-tools/badge.svg)](https://github.com/curtacircuitos/pcb-tools/actions)

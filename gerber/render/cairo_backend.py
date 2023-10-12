@@ -34,6 +34,12 @@ from ..utils import rotate_point
 from io import BytesIO
 
 
+import gmsh
+import numpy
+import math
+
+
+
 class GerberCairoContext(GerberContext):
 
     def __init__(self, scale=300):
@@ -50,6 +56,13 @@ class GerberCairoContext(GerberContext):
         self.size_in_inch = None
         self._xform_matrix = None
         self._render_count = 0
+        self.vtag = 1 #gmsh index for virtices
+        self.etag = 1 #gmsh index for edges
+        self.ctag = 1 #gmsh index for curves
+        self.stag = 1 #gmsh index for surfaces
+        self.lc = 0.1
+        self.gmsh_surf = []
+        self.gmsh_hole = []
 
     @property
     def origin_in_pixels(self):
@@ -210,6 +223,33 @@ class GerberCairoContext(GerberContext):
         with self._clip_primitive(line):
             with self._new_mask() as mask:
                 if isinstance(line.aperture, Circle):
+                    print(line.aperture.diameter)
+                    print(line.start)
+                    print(line.end)
+                    v0 = gmsh.model.occ.addPoint(line.start[0], line.start[1], 0, self.lc)
+                    v1 = gmsh.model.occ.addPoint(line.end[0], line.end[1], 0, self.lc)
+                    para = numpy.array([line.end[0] - line.start[0], line.end[1] - line.start[1]])
+                    orth = numpy.array([line.start[1] - line.end[1], line.end[0] - line.start[0]])
+                    tang = para / numpy.linalg.norm(para)
+                    norm = orth / numpy.linalg.norm(orth)
+                    v2 = gmsh.model.occ.addPoint(line.start[0] + norm[0] * line.aperture.diameter, line.start[1] + norm[1] * line.aperture.diameter, 0, self.lc)
+                    v3 = gmsh.model.occ.addPoint(line.start[0] - tang[0] * line.aperture.diameter, line.start[1] - tang[1] * line.aperture.diameter, 0, self.lc)
+                    v4 = gmsh.model.occ.addPoint(line.start[0] - norm[0] * line.aperture.diameter, line.start[1] - norm[1] * line.aperture.diameter, 0, self.lc)
+                    v5 = gmsh.model.occ.addPoint(line.end[0] + norm[0] * line.aperture.diameter, line.end[1] + norm[1] * line.aperture.diameter, 0, self.lc)
+                    v6 = gmsh.model.occ.addPoint(line.end[0] + tang[0] * line.aperture.diameter, line.end[1] + tang[1] * line.aperture.diameter, 0, self.lc)
+                    v7 = gmsh.model.occ.addPoint(line.end[0] - norm[0] * line.aperture.diameter, line.end[1] - norm[1] * line.aperture.diameter, 0, self.lc)
+                    e0 = gmsh.model.occ.addCircleArc(v2, v0, v3)
+                    e1 = gmsh.model.occ.addCircleArc(v3, v0, v4)
+                    e2 = gmsh.model.occ.addCircleArc(v7, v1, v6)
+                    e3 = gmsh.model.occ.addCircleArc(v6, v1, v5)
+                    e4 = gmsh.model.occ.addLine(v5,v2)
+                    e5 = gmsh.model.occ.addLine(v4,v7)
+                    c = gmsh.model.occ.addCurveLoop([e0, e1, e5, e2, e3, e4])
+                    self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([c]))
+                    self.vtag += 8
+                    self.etag += 6
+                    self.ctag += 1
+                    self.stag += 1
                     width = line.aperture.diameter
                     mask.ctx.set_line_width(width * self.scale[0])
                     mask.ctx.set_line_cap(cairo.LINE_CAP_ROUND)
@@ -217,6 +257,7 @@ class GerberCairoContext(GerberContext):
                     mask.ctx.line_to(*end)
                     mask.ctx.stroke()
 
+                #skip lines with 0 width
                 elif hasattr(line, 'vertices') and line.vertices is not None:
                     points = [self.scale_point(x) for x in line.vertices]
                     mask.ctx.set_line_width(0)
@@ -241,6 +282,23 @@ class GerberCairoContext(GerberContext):
             width = arc.aperture.diameter if arc.aperture.diameter != 0 else 0.001
         else:
             width = max(arc.aperture.width, arc.aperture.height, 0.001)
+
+        v0 = gmsh.model.occ.addPoint(center[0], center[1], 0, self.lc)
+        v1 = gmsh.model.occ.addPoint(center[0] + (radius - width * self.scale[0] / 2) * math.cos(math.radians(angle1)), center[1] + (radius - width * self.scale[0] / 2) * math.sin(math.radians(angle1)), 0, self.lc)
+        v2 = gmsh.model.occ.addPoint(center[0] + (radius - width * self.scale[0] / 2) * math.cos(math.radians(angle2)), center[1] + (radius - width * self.scale[0] / 2) * math.sin(math.radians(angle2)), 0, self.lc)
+        v3 = gmsh.model.occ.addPoint(center[0] + (radius + width * self.scale[0] / 2) * math.cos(math.radians(angle1)), center[1] + (radius + width * self.scale[0] / 2) * math.sin(math.radians(angle1)), 0, self.lc)
+        v4 = gmsh.model.occ.addPoint(center[0] + (radius + width * self.scale[0] / 2) * math.cos(math.radians(angle2)), center[1] + (radius + width * self.scale[0] / 2) * math.sin(math.radians(angle2)), 0, self.lc)
+        e0 = gmsh.model.occ.addCircle(v1, v0, v2)
+        e1 = gmsh.model.occ.addCircle(v4, v0, v3)
+        e2 = gmsh.model.occ.addLine(v2,v4)
+        e3 = gmsh.model.occ.addLine(v3,v1)
+        c =gmsh.model.occ.addCurveLoop([e0, e2, e1, e3])
+        self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([c]))
+        self.vtag += 4
+        self.etag += 4
+        self.ctag += 1
+        self.stag += 1
+                    
 
         self.ctx.set_operator(cairo.OPERATOR_OVER
                               if (not self.invert)
@@ -277,14 +335,40 @@ class GerberCairoContext(GerberContext):
         self.ctx.set_operator(cairo.OPERATOR_OVER
                               if (not self.invert) and region.level_polarity == 'dark'
                               else cairo.OPERATOR_CLEAR)
+        print("render region")
         with self._clip_primitive(region):
             with self._new_mask() as mask:
                 mask.ctx.set_line_width(0)
                 mask.ctx.set_line_cap(cairo.LINE_CAP_ROUND)
                 mask.ctx.move_to(*self.scale_point(region.primitives[0].start))
+                edges = []
+                start = ()
+                points = []
+                curves = []
+
                 for prim in region.primitives:
                     if isinstance(prim, Line):
                         mask.ctx.line_to(*self.scale_point(prim.end))
+                        #print(numpy.isclose(prim._start, prim._end))
+                        if not start:
+                            start = prim._start
+                            points.append(prim._start)
+                            print(start)
+                        #print("add line")
+                        #print(start)
+                        print(prim._end)
+                        v0 = gmsh.model.occ.addPoint(start[0], start[1], 0, self.lc)
+                        v1 = gmsh.model.occ.addPoint(prim._end[0], prim._end[1], 0, self.lc)
+                        edges.append(gmsh.model.occ.addLine(v0, v1))
+                        gmsh.model.occ.synchronize()
+
+                        no_parametrization = []
+                        print(gmsh.model.getValue(0, v1, no_parametrization))
+                        start = prim._end
+                        print(edges[-1])
+                        points.append(start)
+                        print(len(points))
+
                     else:
                         center = self.scale_point(prim.center)
                         radius = self.scale[0] * prim.radius
@@ -293,9 +377,69 @@ class GerberCairoContext(GerberContext):
                         if prim.direction == 'counterclockwise':
                             mask.ctx.arc(center[0], center[1], radius,
                                          angle1, angle2)
+                            if not start:
+                                start = (center[0] + radius * math.cos(math.radians(angle1)), center[1] + radius * math.sin(math.radians(angle1)))
                         else:
                             mask.ctx.arc_negative(center[0], center[1], radius,
                                                   angle1, angle2)
+                            if not start:
+                                start = (center[0] + radius * math.cos(math.radians(angle2)), center[1] + radius * math.sin(math.radians(angle2)))
+
+                        print("add arc")
+                        print([center[0] + radius * math.cos(math.radians(angle1)), center[1] + radius * math.sin(math.radians(angle1))])
+                        print([center[0] + radius * math.cos(math.radians(angle2)), center[1] + radius * math.sin(math.radians(angle2))])
+                        v0 = gmsh.model.occ.addPoint(center[0], center[1], 0, self.lc)
+                        v1 = gmsh.model.occ.addPoint(center[0] + radius * math.cos(math.radians(angle1)), center[1] + radius * math.sin(math.radians(angle1)), 0, self.lc)
+                        v2 = gmsh.model.occ.addPoint(center[0] + radius * math.cos(math.radians(angle2)), center[1] + radius * math.sin(math.radians(angle2)), 0, self.lc)
+                        edges.append(gmsh.model.occ.addCircle(v1, v0, v2))
+                        print(edges[-1])
+                        if prim.direction == 'counterclockwise':
+                            start = (center[0] + radius * math.cos(math.radians(angle2)), center[1] + radius * math.sin(math.radians(angle2)))
+                        else:
+                            start = (center[0] + radius * math.cos(math.radians(angle1)), center[1] + radius * math.sin(math.radians(angle1)))
+
+                    for i, point in enumerate(points):
+                        if (point == start):
+                            num_points = len(points)
+                            if (i + 3 < num_points):
+                                print(len(points))
+                                print(len(edges))
+                                print(i)
+                                print(point)
+                                print([e for e in edges[i:num_points]])
+                                #print([e[0] for e in points[i:num_points]])
+                                #print([e[1] for e in points[i:num_points]])
+                                curves.append(gmsh.model.occ.addCurveLoop([e for e in edges[i:num_points]]))
+                                #gmsh.model.occ.addPlaneSurface([curves[-1]])
+                                print("hoge")
+                                print(i)
+                                for j in range(i + 1, num_points):
+                                    print(points.pop(i))
+                                    edges.pop(i)
+                                break
+                            elif (i + 3 == num_points):
+                                print("huga")
+                                print(i)
+                                print(point)
+                                points.pop(i)
+                                points.pop(i)
+                                edges.pop(i)
+                                edges.pop(i)
+                                break
+
+
+                
+                if(edges.count != 0):
+                    if(len(curves) == 1):
+                        self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([curves[0]]))
+                    else:
+                        #contour = curves.pop(-1)
+                        #curves.insert(0, contour)
+                        self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface(curves))
+                        #self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([contour]))
+                    self.ctag += 1
+                    self.stag += 1
+                    
                 mask.ctx.fill()
                 self.ctx.mask_surface(mask.surface, self.origin_in_pixels[0])
 
@@ -305,6 +449,24 @@ class GerberCairoContext(GerberContext):
                               if (not self.invert)
                                  and circle.level_polarity == 'dark'
                               else cairo.OPERATOR_CLEAR)
+        circle.to_metric()
+        radius = circle.radius
+        v0 = gmsh.model.occ.addPoint(circle.position[0], circle.position[1], 0, self.lc)
+        v1 = gmsh.model.occ.addPoint(circle.position[0] + radius, circle.position[1], 0, self.lc)
+        v2 = gmsh.model.occ.addPoint(circle.position[0], circle.position[1] + radius, 0, self.lc)
+        v3 = gmsh.model.occ.addPoint(circle.position[0] - radius, circle.position[1], 0, self.lc)
+        v4 = gmsh.model.occ.addPoint(circle.position[0], circle.position[1] - radius, 0, self.lc)
+        e0 = gmsh.model.occ.addCircleArc(v1, v0, v2)
+        e1 = gmsh.model.occ.addCircleArc(v2, v0, v3)
+        e2 = gmsh.model.occ.addCircleArc(v3, v0, v4)
+        e3 = gmsh.model.occ.addCircleArc(v4, v0, v1)
+        c = gmsh.model.occ.addCurveLoop([e0, e1, e2, e3])
+        self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([c]))
+        self.vtag += 5
+        self.etag += 4
+        self.ctag += 1
+        self.stag += 1
+
         with self._clip_primitive(circle):
             with self._new_mask() as mask:
                 mask.ctx.set_line_width(0)
@@ -381,6 +543,14 @@ class GerberCairoContext(GerberContext):
                     for point in points:
                         mask.ctx.line_to(*point)
                     mask.ctx.fill()
+                    v_rect = []
+                    e_rect = []
+                    for i in range(4):
+                        v_rect.append(gmsh.model.occ.addPoint(points[i][0], points[i][1], 0, self.lc))
+                    for i in range(4):
+                        e_rect.append(gmsh.model.occ.addLine(v_rect[i], v_rect[(i + 1) % 4]))
+                    c = gmsh.model.occ.addCurveLoop(e_rect)
+                    self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([c]))
                 self.ctx.mask_surface(mask.surface, self.origin_in_pixels[0])
 
     def _render_obround(self, obround, color):
@@ -406,6 +576,23 @@ class GerberCairoContext(GerberContext):
                                                          rectangle.height))])
                 mask.ctx.rectangle(lower_left[0], lower_left[1], width, height)
                 mask.ctx.fill()
+
+                v0 = gmsh.model.occ.addPoint(lower_left[0], lower_left[1] + height / 2, 0, self.lc)
+                v1 = gmsh.model.occ.addPoint(lower_left[0] + width, lower_left[1] + height / 2, 0, self.lc)
+                v2 = gmsh.model.occ.addPoint(lower_left[0], lower_left[1] + height, 0, self.lc)
+                v3 = gmsh.model.occ.addPoint(lower_left[0] - height / 2, lower_left[1] + height / 2, 0, self.lc)
+                v4 = gmsh.model.occ.addPoint(lower_left[0], lower_left[1], 0, self.lc)
+                v5 = gmsh.model.occ.addPoint(lower_left[0] + width, lower_left[1] + height, 0, self.lc)
+                v6 = gmsh.model.occ.addPoint(lower_left[0] + width + height / 2, lower_left[1] + height / 2, 0, self.lc)
+                v7 = gmsh.model.occ.addPoint(lower_left[0] + width, lower_left[1], 0, self.lc)
+                e0 = gmsh.model.occ.addCircleArc(v2, v0, v3)
+                e1 = gmsh.model.occ.addCircleArc(v3, v0, v4)
+                e2 = gmsh.model.occ.addCircleArc(v7, v1, v6)
+                e3 = gmsh.model.occ.addCircleArc(v6, v1, v5)
+                e4 = gmsh.model.occ.addLine(v5,v2)
+                e5 = gmsh.model.occ.addLine(v4,v7)
+                c = gmsh.model.occ.addCurveLoop([e0, e1, e5, e2, e3, e4])
+                self.gmsh_surf.append(gmsh.model.occ.addPlaneSurface([c]))
 
                 center = self.scale_point(obround.position)
                 if obround.hole_diameter > 0:
@@ -492,6 +679,7 @@ class GerberCairoContext(GerberContext):
     def _render_drill(self, circle, color=None):
         color = color if color is not None else self.drill_color
         self._render_circle(circle, color)
+        self.gmsh_hole.append(self.gmsh_surf.pop(-1))
 
     def _render_slot(self, slot, color):
         start = map(mul, slot.start, self.scale)
