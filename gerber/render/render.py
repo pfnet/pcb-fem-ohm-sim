@@ -168,7 +168,7 @@ class GerberContext(object):
         elif isinstance(primitive, TestRecord):
             self._render_test_record(primitive, color)
         
-        print(primitive)
+        #print(primitive)
 
         self.post_render_primitive(primitive)
 
