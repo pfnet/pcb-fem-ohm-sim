@@ -144,23 +144,23 @@ class GerberContext(object):
         color = self.color
         
         if isinstance(primitive, Line):
-            self._render_line(primitive, [1,0,0])
+            self._render_line(primitive, color)
         elif isinstance(primitive, Arc):
-            self._render_arc(primitive, [0,1,0])
+            self._render_arc(primitive, color)
         elif isinstance(primitive, Region):
-            self._render_region(primitive, [0,0,1])
+            self._render_region(primitive, color)
         elif isinstance(primitive, Circle):
-            self._render_circle(primitive, [0,1,1])
+            self._render_circle(primitive, color)
         elif isinstance(primitive, Rectangle):
-            self._render_rectangle(primitive, [1,0,1])
+            self._render_rectangle(primitive, color)
         elif isinstance(primitive, Obround):
-            self._render_obround(primitive, [1,1,0])
+            self._render_obround(primitive, color)
         elif isinstance(primitive, Polygon):
-            self._render_polygon(primitive, [0.5,0.5,0.5])
+            self._render_polygon(primitive, color)
         elif isinstance(primitive, Drill):
-            self._render_drill(primitive, self.color)
+            self._render_drill(primitive, color)
         elif isinstance(primitive, Slot):
-            self._render_slot(primitive, self.color)
+            self._render_slot(primitive, color)
         elif isinstance(primitive, AMGroup):
             self._render_amgroup(primitive, color)
         elif isinstance(primitive, Outline):
@@ -168,7 +168,7 @@ class GerberContext(object):
         elif isinstance(primitive, TestRecord):
             self._render_test_record(primitive, color)
         
-        #print(primitive)
+        print(primitive)
 
         self.post_render_primitive(primitive)
 

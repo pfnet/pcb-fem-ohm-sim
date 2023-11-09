@@ -10,41 +10,19 @@ from gerber.render import theme
 from gerber.render.cairo_backend import GerberCairoContext
 
 path = "./sample1"
+#path = "./examples/gerbers/"
 
 gmsh.initialize()
 ctx = GerberCairoContext()
 pcb = PCB.from_directory(path)
-ctx.render_layers(pcb.top_layers, path + '/../pcb_top.png', theme.THEMES['OSH Park'], max_width=800, max_height=600)
+
 surfaces_index = []
+
+"""
+ctx.render_layers(pcb.top_layers, path + '/../pcb_top.png', theme.THEMES['OSH Park'], max_width=800, max_height=600)
 fused = ctx.gmsh_surf.pop(0)
 #print(ctx.gmsh_surf)
 #print(ctx.gmsh_hole)
-"""
-for surface in ctx.gmsh_surf:
-	sf = gmsh.model.occ.fuse([(2,fused)], [(2, surface)], removeObject=True, removeTool=True)
-	print(sf)
-	gmsh.model.occ.synchronize()
-	fused = sf[0][0][1]
-for surface in ctx.gmsh_surf:
-	surfaces_index.append((2, surface))
-#surfaces_index = ([(2, surface)] for surface in ctx.gmsh_surf)
-print(surfaces_index)
-surfaces = gmsh.model.occ.fragment(surfaces_index, [], removeObject=True, removeTool=True)
-#while len(ctx.gmsh_surf) > 1:
-#	ctx.gmsh_surf.append(gmsh.model.occ.fuse([(2, ctx.gmsh_surf.pop(0))],[(2, ctx.gmsh_surf.pop(0))]))
-holes_index = []
-for hole in ctx.gmsh_hole:
-	holes_index.append((2,hole))
-holes = gmsh.model.occ.fragment(holes_index, [], removeObject=True, removeTool=True)
-print("print fragments")
-print(surfaces)
-print(surfaces[0][-1][1])
-print(holes)
-print(holes[0][-1][1])
-#holes = gmsh.model.occ.fuse([holes_index.pop(0)], holes_index, removeObject=True, removeTool=True)
-#holes = gmsh.model.occ.fuse(([(2, surface)] for surface in ctx.gmsh_hole))
-gmsh.model.occ.cut([(2,surfaces[0][-1][1])], [(2,holes[0][-1][1])], removeObject=True, removeTool=True)
-"""
 
 surfaces_index = []
 for s_iter in ctx.gmsh_surf:
@@ -87,9 +65,6 @@ V = fem.FunctionSpace(domain, ("CG", 1))
 import ufl
 from petsc4py.PETSc import ScalarType
 x = ufl.SpatialCoordinate(domain)
-"""
-set boundary conditions
-"""
 
 import re
 import os
@@ -131,22 +106,7 @@ for hole in holes:
 		return np.isclose(np.sqrt((x[0] - float(hole[1][0]) * 25.4)**2 + (x[1] - float(hole[1][1]) * 25.4)**2), float(hole[0]) * 25.4 / 2)
 	boundary_dofs = fem.locate_dofs_geometrical(V, on_boundary)
 	bcs.append(fem.dirichletbc(ScalarType(1), boundary_dofs, V))
-
-"""
-def on_boundary1(x):
-    return np.isclose(np.sqrt((x[0] - 17.78)**2 + (x[1] + 20.32)**2), 0.2)
-	#return np.isclose(np.sqrt((x[0] - 0.7*25.4)**2 + (x[1] - 0.8*25.4)**2), 0.157 * 25.4)
-def on_boundary2(x):
-    return np.isclose(np.sqrt((x[0] - 27.94)**2 + (x[1] + 20.32)**2), 0.2)
-    #return np.isclose(np.sqrt((x[0] - 1.1*25.4)**2 + (x[1] - 0.8*25.4)**2), 0.157 * 25.4)
-
-boundary_dofs1 = fem.locate_dofs_geometrical(V, on_boundary1)
-bc1 = fem.dirichletbc(ScalarType(1), boundary_dofs1, V)
-
-boundary_dofs2 = fem.locate_dofs_geometrical(V, on_boundary2)
-bc2 = fem.dirichletbc(ScalarType(0), boundary_dofs2, V)
-bcs = [bc1,bc2]
-"""
+s
 
 f = fem.Constant(domain, ScalarType(0))
 u = ufl.TrialFunction(V)
@@ -184,40 +144,38 @@ ctx.gmsh_hole = []
 
 gmsh.initialize()
 
-"""
-gmsh.model.occ.synchronize()
-gdim = 2
-gmsh.model.addPhysicalGroup(gdim, [membrane], 1)
-gmsh.option.setNumber("Mesh.CharacteristicLengthMin",0.05)
-gmsh.option.setNumber("Mesh.CharacteristicLengthMax",0.05)
-gmsh.model.mesh.generate(gdim)
+
 """
 ctx.render_layers(pcb.bottom_layers, path + '/../pcb_bottom.png', theme.THEMES['OSH Park'], max_width=800, max_height=600)
-
 surfaces_index = []
+
+print(ctx.gmsh_surf)
+print(ctx.gmsh_hole)
+
 for s_iter in ctx.gmsh_surf:
 	surface = s_iter[0]
 	holes = s_iter[1]
 	for hole in holes:
-		#print([[(2, surface)],[(2,hole)]])
+		print([[(2, surface)],[(2,hole)]])
 		s = gmsh.model.occ.cut([(2, surface)],[(2,hole)], removeObject=True, removeTool=False)
-		#print(s)
+		print(s)
 		surface = s[0][0][1]
 		gmsh.model.occ.remove([(2,hole)], recursive=True)
 	for hole in ctx.gmsh_hole:
-		#print([[(2, surface)],[(2,hole[0])]])
+		print([[(2, surface)],[(2,hole[0])]])
 		s = gmsh.model.occ.cut([(2, surface)],[(2,hole[0])], removeObject=True, removeTool=False)
-		#print(s)
+		print(s)
 		surface = s[0][0][1]
 	surfaces_index.append((2, surface))
 for hole in ctx.gmsh_hole:
 	gmsh.model.occ.remove([(2,hole[0])], recursive=True)
 surfaces = gmsh.model.occ.fragment(surfaces_index, [], removeObject=True, removeTool=True)
-
 gmsh.model.occ.synchronize()
 gmsh.model.addPhysicalGroup(2,[x[1] for x in surfaces[0]],0)
 gmsh.option.setNumber("Mesh.CharacteristicLengthMin",ctx.lc)
 gmsh.option.setNumber("Mesh.CharacteristicLengthMax",ctx.lc)
+
+gmsh.model.occ.synchronize()
 gmsh.model.mesh.generate(2)
 gmsh.fltk.run()
 gmsh.write("t2_.msh")
@@ -231,6 +189,8 @@ gdim = 2
 mesh_comm = MPI.COMM_WORLD
 domain, cell_markers, facet_markers = gmshio.model_to_mesh(gmsh.model, mesh_comm, gmsh_model_rank, gdim=gdim)
 from dolfinx import fem
+import dolfinx
+
 V = fem.FunctionSpace(domain, ("CG", 1))
 import ufl
 from petsc4py.PETSc import ScalarType
@@ -245,6 +205,8 @@ filepath = ""
 for file in os.listdir(path):
     if(re.match(".*(-PTH.drl)$",file)):
         filepath = file
+    if(re.match(".*(.DRD)$",file)):
+        filepath = file
 
 drills = []
 holes = []
@@ -272,29 +234,30 @@ print(holes)
 
 import numpy as np
 
+potential = np.zeros(len(holes))
+potential[1] = 1
+boundaries = []
 bcs = []
 
-for hole in holes:
+for i, hole in enumerate(holes):
 	def on_boundary(x):
 		return np.isclose(np.sqrt((x[0] - float(hole[1][0]) * 25.4)**2 + (x[1] - float(hole[1][1]) * 25.4)**2), float(hole[0]) * 25.4 / 2)
 	boundary_dofs = fem.locate_dofs_geometrical(V, on_boundary)
-	bcs.append(fem.dirichletbc(ScalarType(1), boundary_dofs, V))
+	boundaries.append((i + 1, lambda x: np.isclose(np.sqrt((x[0] - float(hole[1][0]) * 25.4)**2 + (x[1] - float(hole[1][1]) * 25.4)**2), float(hole[0]) * 25.4 / 2)))
+	bcs.append(fem.dirichletbc(ScalarType(potential[i]), boundary_dofs, V))
 
-"""
-def on_boundary1(x):
-    return np.isclose(np.sqrt((x[0] - 17.78)**2 + (x[1] + 20.32)**2), 0.2)
-	#return np.isclose(np.sqrt((x[0] - 0.7*25.4)**2 + (x[1] - 0.8*25.4)**2), 0.157 * 25.4)
-def on_boundary2(x):
-    return np.isclose(np.sqrt((x[0] - 27.94)**2 + (x[1] + 20.32)**2), 0.2)
-    #return np.isclose(np.sqrt((x[0] - 1.1*25.4)**2 + (x[1] - 0.8*25.4)**2), 0.157 * 25.4)
+facet_indices, facet_markers = [], []
+fdim = domain.topology.dim - 1
 
-boundary_dofs1 = fem.locate_dofs_geometrical(V, on_boundary1)
-bc1 = fem.dirichletbc(ScalarType(1), boundary_dofs1, V)
+for (marker, locator) in boundaries:
+	facets = dolfinx.mesh.locate_entities(domain, fdim, locator)
+	facet_indices.append(facets)
+	facet_markers.append(np.full_like(facets, marker))
+facet_indices = np.hstack(facet_indices).astype(np.int32)
+facet_markers = np.hstack(facet_markers).astype(np.int32)
+sorted_facets = np.argsort(facet_indices)
+facet_tag = dolfinx.mesh.meshtags(domain, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets])
 
-boundary_dofs2 = fem.locate_dofs_geometrical(V, on_boundary2)
-bc2 = fem.dirichletbc(ScalarType(0), boundary_dofs2, V)
-bcs = [bc1,bc2]
-"""
 
 f = fem.Constant(domain, ScalarType(0))
 u = ufl.TrialFunction(V)
@@ -303,6 +266,14 @@ a = ufl.dot(ufl.grad(u), ufl.grad(v)) * ufl.dx
 L = f * v * ufl.dx
 problem = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
+
+sigma_Cu = 2.0115 * 10**3
+
+n = ufl.FacetNormal(domain)
+ds = ufl.Measure("ds", domain=domain, subdomain_data=facet_tag)
+current = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.dot(ufl.grad(u),n)*ds)) * sigma_Cu
+print(current)
+
 
 import pyvista
 import dolfinx
@@ -328,10 +299,10 @@ if not pyvista.OFF_SCREEN:
 gmsh.finalize()
 ctx.gmsh_surf = []
 ctx.gmsh_hole = []
-
+"""
 gmsh.initialize()
 
 ctx.render_layers(pcb.copper_layers + pcb.drill_layers, path + '/../pcb_transparent_copper.png', theme.THEMES['Transparent Copper'], max_width=800, max_height=600)
 
 gmsh.finalize()
-
+"""
