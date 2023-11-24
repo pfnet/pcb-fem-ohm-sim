@@ -1,12 +1,13 @@
 =======
 # pe_artic
 
-This repository has been modified
-Distributing it may violate the license.
+This repository has been modified based on pcb-tools https://github.com/curtacircuitos/pcb-tools,
+so that the parsed gerber can be seemlessly connected to Gmsh https://gmsh.info/ and FEniCSx https://fenicsproject.org/ for Electric simulation.
 
 The aim of this project is to analyze current density of PCB-boards.
 FEniCSx and gmsh are required.
 
+The copyright of the source code belongs to Preferred Networks, Inc.
 
 pcb-tools
 ============
