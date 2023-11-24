@@ -1,8 +1,8 @@
 =======
-# pe_artic
+# OSS Static Current Analysis for PCB
 
 This repository has been modified based on pcb-tools https://github.com/curtacircuitos/pcb-tools,
-so that the parsed gerber can be seemlessly connected to Gmsh https://gmsh.info/ and FEniCSx https://fenicsproject.org/ for Electric simulation.
+to simulate current density on PCB.
 
 The aim of this project is to analyze current density of PCB-boards.
 FEniCSx and gmsh are required.
