@@ -7,13 +7,13 @@ sys.path.append(os.environ["HOME"]+"/pcb-tools")
 
 from gerber import PCB
 from gerber.render import theme
-from gerber.render.cairo_backend import GerberCairoContext
+from gmsh_backend import GerberGmshContext
 
 path = "./sample1"
 #path = "./examples/gerbers/"
 
 gmsh.initialize()
-ctx = GerberCairoContext()
+ctx = GerberGmshContext()
 pcb = PCB.from_directory(path)
 
 surfaces_index = []
