@@ -1,4 +1,4 @@
-=======
+
 # OSS Static Current Analysis for PCB
 
 This repository has been modified based on pcb-tools https://github.com/curtacircuitos/pcb-tools,

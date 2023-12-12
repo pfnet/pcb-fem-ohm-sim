@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2014 Hamilton Kibbe <ham@hamiltonkib.be>
+# Copyright 2023 Preferred Networks, Inc.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ import tempfile
 import copy
 import os
 
-from .render import GerberContext, RenderSettings
-from .theme import THEMES
-from ..primitives import *
-from ..utils import rotate_point
+from gerber.render.render import GerberContext, RenderSettings
+from gerber.render.theme import THEMES
+from gerber.primitives import *
+from gerber.utils import rotate_point
 
 from io import BytesIO
 
@@ -40,10 +40,10 @@ import math
 
 
 
-class GerberCairoContext(GerberContext):
+class GerberGmshContext(GerberContext):
 
     def __init__(self, scale=300):
-        super(GerberCairoContext, self).__init__()
+        super(GerberGmshContext, self).__init__()
         self.scale = (scale, scale)
         self.surface = None
         self.surface_buffer = None
