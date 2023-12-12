@@ -15,10 +15,10 @@ from mpi4py import MPI
 import pyvista
 
 
-path = "./sample1"
+path = "../../sample1"
 
 gmsh.initialize()
-ctx = GerberGmshContext()
+ctx = GerberGmshContext(lc=0.05)
 pcb = PCB.from_directory(path)
 
 surfaces_index = []
@@ -35,13 +35,13 @@ for s_iter in ctx.gmsh_surf:
 	for hole in holes:
 		print([[(2, surface)],[(2,hole)]])
 		s = gmsh.model.occ.cut([(2, surface)],[(2,hole)], removeObject=True, removeTool=False)
-		print(s)
+#		print(s)
 		surface = s[0][0][1]
 		gmsh.model.occ.remove([(2,hole)], recursive=True)
 	for hole in ctx.gmsh_hole:
-		print([[(2, surface)],[(2,hole[0])]])
+#		print([[(2, surface)],[(2,hole[0])]])
 		s = gmsh.model.occ.cut([(2, surface)],[(2,hole[0])], removeObject=True, removeTool=False)
-		print(s)
+#		print(s)
 		surface = s[0][0][1]
 	surfaces_index.append((2, surface))
 for hole in ctx.gmsh_hole:
@@ -54,6 +54,7 @@ gmsh.option.setNumber("Mesh.CharacteristicLengthMax",ctx.lc)
 
 gmsh.model.occ.synchronize()
 gmsh.model.mesh.generate(2)
+gmsh.model.mesh.refine()
 gmsh.fltk.run()
 gmsh.write("t2_.msh")
 
@@ -109,15 +110,23 @@ print(holes)
 
 
 potential = np.zeros(len(holes))
-potential[1] = 1
+potential[0] = 1
 boundaries = []
 bcs = []
+
+class Locator(object):
+        def __init__(self, hole):
+                super().__init__()
+                self.hole = hole
+
+        def __call__(self,x):
+                return np.isclose(np.sqrt((x[0] - float(self.hole[1][0]) * 25.4)**2 + (x[1] - float(self.hole[1][1]) * 25.4)**2), float(self.hole[0]) * 25.4 / 2)
 
 for i, hole in enumerate(holes):
 	def on_boundary(x):
 		return np.isclose(np.sqrt((x[0] - float(hole[1][0]) * 25.4)**2 + (x[1] - float(hole[1][1]) * 25.4)**2), float(hole[0]) * 25.4 / 2)
 	boundary_dofs = fem.locate_dofs_geometrical(V, on_boundary)
-	boundaries.append((i + 1, lambda x: np.isclose(np.sqrt((x[0] - float(hole[1][0]) * 25.4)**2 + (x[1] - float(hole[1][1]) * 25.4)**2), float(hole[0]) * 25.4 / 2)))
+	boundaries.append((i + 1, Locator(hole)))
 	bcs.append(fem.dirichletbc(ScalarType(potential[i]), boundary_dofs, V))
 
 facet_indices, facet_markers = [], []
@@ -141,13 +150,17 @@ L = f * v * ufl.dx
 problem = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
+
 sigma_Cu = 2.0115 * 10**3
 
 n = ufl.FacetNormal(domain)
 ds = ufl.Measure("ds", domain=domain, subdomain_data=facet_tag)
-current = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.dot(ufl.grad(u),n)*ds)) * sigma_Cu
+current = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.dot(ufl.grad(uh),n)*ds)) * sigma_Cu
 print(current)
-
+current = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.dot(ufl.grad(uh),n)*ds(1))) * sigma_Cu
+print(current)
+current = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.dot(ufl.grad(uh),n)*ds(2))) * sigma_Cu
+print(current)
 
 
 

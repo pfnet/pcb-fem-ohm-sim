@@ -42,7 +42,7 @@ import math
 
 class GerberGmshContext(GerberContext):
 
-    def __init__(self, scale=300):
+    def __init__(self, scale=300, lc=1):
         super(GerberGmshContext, self).__init__()
         self.scale = (scale, scale)
         self.surface = None
@@ -60,7 +60,7 @@ class GerberGmshContext(GerberContext):
         self.etag = 1 #gmsh index for edges
         self.ctag = 1 #gmsh index for curves
         self.stag = 1 #gmsh index for surfaces
-        self.lc = 1
+        self.lc = lc
         self.gmsh_surf = []
         self.gmsh_hole = []
 
@@ -229,10 +229,10 @@ class GerberGmshContext(GerberContext):
                         e = gmsh.model.occ.addLine(v0,v1)
                     elif(numpy.isclose(numpy.linalg.norm(numpy.array(line.start) - numpy.array(line.end)), 0)):
                         v0 = gmsh.model.occ.addPoint(line.start[0], line.start[1], 0, self.lc)
-                        v1 = gmsh.model.occ.addPoint(line.start[0] + line.aperture.diameter, line.start[1], 0, self.lc)
-                        v2 = gmsh.model.occ.addPoint(line.start[0], line.start[1] + line.aperture.diameter, 0, self.lc)
-                        v3 = gmsh.model.occ.addPoint(line.start[0] - line.aperture.diameter, line.start[1], 0, self.lc)
-                        v4 = gmsh.model.occ.addPoint(line.start[0], line.start[1] - line.aperture.diameter, 0, self.lc)
+                        v1 = gmsh.model.occ.addPoint(line.start[0] + line.aperture.diameter / 2, line.start[1], 0, self.lc)
+                        v2 = gmsh.model.occ.addPoint(line.start[0], line.start[1] + line.aperture.diameter / 2, 0, self.lc)
+                        v3 = gmsh.model.occ.addPoint(line.start[0] - line.aperture.diameter / 2, line.start[1], 0, self.lc)
+                        v4 = gmsh.model.occ.addPoint(line.start[0], line.start[1] - line.aperture.diameter / 2, 0, self.lc)
                         e_arr = []
                         e_arr.append(gmsh.model.occ.addCircleArc(v1, v0, v2))
                         e_arr.append(gmsh.model.occ.addCircleArc(v2, v0, v3))
@@ -250,16 +250,16 @@ class GerberGmshContext(GerberContext):
                         line_len = numpy.linalg.norm(para)
                         tang = para / line_len
                         norm = orth / line_len
-                        v2 = gmsh.model.occ.addPoint(line.start[0] + norm[0] * line.aperture.diameter, line.start[1] + norm[1] * line.aperture.diameter, 0, self.lc)
-                        v4 = gmsh.model.occ.addPoint(line.start[0] - norm[0] * line.aperture.diameter, line.start[1] - norm[1] * line.aperture.diameter, 0, self.lc)
-                        v5 = gmsh.model.occ.addPoint(line.end[0] + norm[0] * line.aperture.diameter, line.end[1] + norm[1] * line.aperture.diameter, 0, self.lc)
-                        v7 = gmsh.model.occ.addPoint(line.end[0] - norm[0] * line.aperture.diameter, line.end[1] - norm[1] * line.aperture.diameter, 0, self.lc)
+                        v2 = gmsh.model.occ.addPoint(line.start[0] + norm[0] * line.aperture.diameter / 2, line.start[1] + norm[1] * line.aperture.diameter / 2, 0, self.lc)
+                        v4 = gmsh.model.occ.addPoint(line.start[0] - norm[0] * line.aperture.diameter / 2, line.start[1] - norm[1] * line.aperture.diameter / 2, 0, self.lc)
+                        v5 = gmsh.model.occ.addPoint(line.end[0] + norm[0] * line.aperture.diameter / 2, line.end[1] + norm[1] * line.aperture.diameter / 2, 0, self.lc)
+                        v7 = gmsh.model.occ.addPoint(line.end[0] - norm[0] * line.aperture.diameter / 2, line.end[1] - norm[1] * line.aperture.diameter / 2, 0, self.lc)
                         e_arr = []
-                        v3 = gmsh.model.occ.addPoint(line.start[0] - tang[0] * line.aperture.diameter, line.start[1] - tang[1] * line.aperture.diameter, 0, self.lc)
+                        v3 = gmsh.model.occ.addPoint(line.start[0] - tang[0] * line.aperture.diameter / 2, line.start[1] - tang[1] * line.aperture.diameter / 2, 0, self.lc)
                         e_arr.append(gmsh.model.occ.addCircleArc(v2, v0, v3))
                         e_arr.append(gmsh.model.occ.addCircleArc(v3, v0, v4))
                         e_arr.append(gmsh.model.occ.addLine(v4,v7))
-                        v6 = gmsh.model.occ.addPoint(line.end[0] + tang[0] * line.aperture.diameter, line.end[1] + tang[1] * line.aperture.diameter, 0, self.lc)
+                        v6 = gmsh.model.occ.addPoint(line.end[0] + tang[0] * line.aperture.diameter / 2, line.end[1] + tang[1] * line.aperture.diameter / 2, 0, self.lc)
                         e_arr.append(gmsh.model.occ.addCircleArc(v7, v1, v6))
                         e_arr.append(gmsh.model.occ.addCircleArc(v6, v1, v5))
                         e_arr.append(gmsh.model.occ.addLine(v5,v2))
@@ -536,8 +536,23 @@ class GerberGmshContext(GerberContext):
                 mask.ctx.set_line_width(0)
                 mask.ctx.rectangle(lower_left[0], lower_left[1], width, height)
                 mask.ctx.fill()
+                
+                v_rect = []
+                e_rect = []
+                lower_left = rectangle.lower_left
+                width = rectangle.width
+                height = rectangle.height
+                v_rect.append(gmsh.model.occ.addPoint(lower_left[0], lower_left[1], 0, self.lc))
+                v_rect.append(gmsh.model.occ.addPoint(lower_left[0] + width, lower_left[1], 0, self.lc))
+                v_rect.append(gmsh.model.occ.addPoint(lower_left[0] + width, lower_left[1] + height, 0, self.lc))
+                v_rect.append(gmsh.model.occ.addPoint(lower_left[0], lower_left[1] + height, 0, self.lc))
+                for i in range(4):
+                    e_rect.append(gmsh.model.occ.addLine(v_rect[i], v_rect[(i + 1) % 4]))
+                c = gmsh.model.occ.addCurveLoop(e_rect)
+                self.gmsh_surf.append([gmsh.model.occ.addPlaneSurface([c]), []])
 
                 center = self.scale_point(rectangle.position)
+                print(center)
                 if rectangle.hole_diameter > 0:
                     # Render the center clear
                     mask.ctx.set_operator(cairo.OPERATOR_CLEAR
@@ -566,13 +581,14 @@ class GerberGmshContext(GerberContext):
                     v_rect = []
                     e_rect = []
                     for i in range(4):
+                        print("rectandle {},{}",points[i][0],points[i][1])
                         v_rect.append(gmsh.model.occ.addPoint(points[i][0], points[i][1], 0, self.lc))
                     for i in range(4):
                         line_vec = numpy.array(points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1])
                         line_len = numpy.linalg.norm(line_vec)
                         e_rect.append(gmsh.model.occ.addLine(v_rect[i], v_rect[(i + 1) % 4]))
                     c = gmsh.model.occ.addCurveLoop(e_rect)
-                    self.gmsh_surf.append([gmsh.model.occ.addPlaneSurface([c]), []])
+                    self.gmsh_hole.append([gmsh.model.occ.addPlaneSurface([c]), []])
                 self.ctx.mask_surface(mask.surface, self.origin_in_pixels[0])
 
     def _render_obround(self, obround, color):

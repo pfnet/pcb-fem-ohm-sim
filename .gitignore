@@ -50,4 +50,7 @@ Thumbs.db
 venv
 coverage.xml
 
+
+*.png
+
 *.msh
