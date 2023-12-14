@@ -1,5 +1,5 @@
 
-# OSS Static Current Analysis for PCB
+# pcb-fem-ohm-sim: Finite Element Method Static Current Analysis for PCB
 
 The aim of this project is to analyze current density of PCB-boards.
 FEniCSx and gmsh are required.
